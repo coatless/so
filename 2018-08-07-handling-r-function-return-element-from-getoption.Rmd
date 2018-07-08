@@ -1,0 +1,57 @@
+
+Post: https://stackoverflow.com/questions/51236092/get-global-option-in-rcpp
+
+```{Rcpp}
+#include<Rcpp.h>
+
+
+// [[Rcpp::export]]
+void test_option() {
+
+  Rcpp::Environment base("package:base");
+  Rcpp::Function get_option = base["getOption"];
+  Rcpp::Rcout << Rf_type2char(TYPEOF(get_option("width")));
+}
+```
+
+```{r}
+test_option()
+```
+
+```{Rcpp}
+#include<Rcpp.h>
+
+// [[Rcpp::export]]
+Rcpp::IntegerVector  get_width() {
+
+  Rcpp::Environment base("package:base");
+  Rcpp::Function get_option = base["getOption"];
+  Rcpp::IntegerVector out = get_option("width");
+  
+  return out;
+}
+```
+
+```{r}
+get_width()
+```
+
+Misc:
+
+Dynamic version using `SEXP`
+
+```{Rcpp}
+#include<Rcpp.h>
+
+// [[Rcpp::export]]
+SEXP  get_option(std::string option = "width") {
+
+  Rcpp::Environment base("package:base");
+  Rcpp::Function get_option = base["getOption"];
+  SEXP out = get_option(option);
+  
+  return out;
+}
+```
+
+
