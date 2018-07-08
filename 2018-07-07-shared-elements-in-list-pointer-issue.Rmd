@@ -1,0 +1,59 @@
+
+Post: https://stackoverflow.com/questions/51224721/how-to-correctly-change-a-list-of-a-listmatrix-in-rcpp-in-r
+
+```{r}
+# install.packages("devtools")
+# devtools::install_github("r-lib/lobstr")
+
+x = matrix(list(matrix(0,3,2)),2,2)
+
+lobstr::obj_size(x)
+lobstr::obj_addrs(x)
+utils::object.size(x)
+
+obj_split = matrix(list(matrix(1,2,2), matrix(2,3,3), matrix(3,4,4), matrix(4,5,5)),2,2)
+lobstr::obj_size(obj_split)
+lobstr::obj_addrs(obj_split)
+utils::object.size(obj_split)
+```
+
+
+```{Rcpp}
+#include<Rcpp.h>
+
+// [[Rcpp::export]]
+Rcpp::ListMatrix ListMatrixType_clone(Rcpp::ListMatrix x){
+  Rcpp::NumericMatrix a = x(0, 0);
+    
+  Rcpp::NumericMatrix b = Rcpp::clone(a);
+  b(0, 0) = 100;
+  
+  x(0, 0) = b;
+  return x;
+}
+```
+
+```{r}
+ListMatrixType_clone(x)
+str(x)
+```
+
+
+```{Rcpp}
+#include<Rcpp.h>
+
+// [[Rcpp::export]]
+void ListMatrixType_pointer(Rcpp::ListMatrix x){
+  Rcpp::NumericMatrix a = x(0, 0);
+  a(0, 0) = 100;
+}
+```
+
+
+```{r}
+ListMatrixType_pointer(x)
+str(x)
+```
+
+
+
