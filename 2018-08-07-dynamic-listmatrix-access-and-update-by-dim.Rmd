@@ -1,0 +1,96 @@
+Post: https://stackoverflow.com/questions/51236305/rcpp-declare-elements-numericmatrix-of-a-listmatrix-dynamically
+
+Manual element creation and access (cleaned op code):
+
+```{Rcpp}
+#include<Rcpp.h>
+
+// [[Rcpp::export]]
+Rcpp::ListMatrix ListMatrixType_static(Rcpp::ListMatrix dp1){
+
+    // Question: how to declare the type of elements of the ListMatrix 
+    // dynamically according to the dimension of dp1?
+    // I want to avoid the verbose method as below:
+    Rcpp::NumericMatrix dp1_00 = dp1(0,0);
+    Rcpp::NumericMatrix dp1_01 = dp1(0,1);
+    Rcpp::NumericMatrix dp1_10 = dp1(1,0);
+    Rcpp::NumericMatrix dp1_11 = dp1(1,1);
+
+    // then doing something on dp1_00, dp1_01, ..., and others
+    dp1_00(0,0) = 100;
+
+    // then update dp1
+    dp1(0,0) = dp1_00;
+    dp1(0,1) = dp1_01;
+    dp1(1,0) = dp1_10;
+    dp1(1,1) = dp1_11;
+
+    return dp1;
+}
+```
+
+Dynamically touch elements
+
+```{Rcpp}
+#include<Rcpp.h>
+
+// [[Rcpp::export]]
+Rcpp::ListMatrix ListMatrixType_dynamic(Rcpp::ListMatrix x){
+    
+    // Dimensions of the List Matrix 
+    // Note: List Matrices are 
+    int n_element_rows = x.nrow();
+    int n_element_cols = x.ncol();
+    
+    // Loop over each row
+    for(int i = 0; i < n_element_rows; ++i) {
+        // Loop over each column
+        for(int j = 0; j < n_element_cols; ++j) {
+            // Retrieve element
+            Rcpp::NumericMatrix a = x(i, j);
+            // Modify element uniquely by row and column position
+            Rcpp::NumericMatrix b = Rcpp::clone(a) + i + j;
+            // Store element back into position
+            x(i, j) = b; 
+        }
+    }
+    
+    // Return an object back to _R_
+    return x;
+}
+```
+
+```{r}
+x = matrix(rep(list(matrix(1,100,2)),2*2),2,2)
+y = ListMatrixType_dynamic(x)
+```
+
+Misc:
+
+The `typedef` of a `ListMatrix` uses the generic vector's type, e.g. `VECSXP`.
+
+https://github.com/RcppCore/Rcpp/blob/6f81b4684481dbd9bb554dd95e66725fc3b63a8c/inst/include/Rcpp/vector/instantiation.h#L48-L49
+
+Consider adding a dynamic dispatch, e.g.
+
+```{Rcpp}
+#include<Rcpp.h>
+
+template <int RTYPE>
+Rcpp::Matrix<RTYPE> matrix_helper(const Rcpp::Matrix<RTYPE>& x) {
+  // Code
+  return x;
+} 
+
+// [[Rcpp::export]]
+Rcpp::Matrix<T> determine_matrix_type(SEXP x) {
+    switch (TYPEOF(x)) {
+    case INTSXP: return matrix_helper<INTSXP>(x);
+    case REALSXP: return matrix_helper<REALSXP>(x);
+    case STRSXP: return matrix_helper<STRSXP>(x);
+    default: Rcpp::stop("SEXP Type Not Supported."); 
+    }
+    return R_NilValue;
+}
+```
+
