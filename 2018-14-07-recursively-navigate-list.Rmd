@@ -1,0 +1,117 @@
+Post: https://stackoverflow.com/questions/51343793/how-to-check-if-list-contains-lists-recursively
+
+Data:
+
+```{r}
+node1 = list(right = list(right = 0))  
+node2 = list(right = 0)  
+```
+
+OP Code:
+
+```{Rcpp}
+#include <Rcpp.h>
+
+// Gently modified to compile 
+   
+// [[Rcpp::export]]
+int predict_bad(Rcpp::List node){
+   if(node["right"]){
+     return predict_bad(node["right"]);
+   }
+   return node["right"];
+}
+```
+
+```{r, eval = FALSE}
+predict_bad(node1)
+# Error in predict_bad(node1) : Not compatible with requested type: [type=list; target=logical].
+```
+
+Experiments:
+
+```{Rcpp}
+#include<Rcpp.h>
+
+// [[Rcpp::export]]
+Rcpp::List predict_list(Rcpp::List node){
+    
+    // Check if name is present
+    if(node.containsElementNamed("right")) {
+        return predict_list(node["right"]);
+    }
+    
+    return node;
+}
+```
+
+```{r}
+predict_list(node1)
+predict_list(node2)
+```
+
+```{Rcpp}
+#include<Rcpp.h>
+
+// [[Rcpp::export]]
+int predict_node_val(Rcpp::List node) {
+    
+    // Check if name is present
+    if(node.containsElementNamed("right")) {
+        // Continue down the tree
+        return predict_node_val(node["right"]);
+    }
+    
+    // Subset and convert to integer
+    int i = Rcpp::as<int>( node[0] );
+    return i;
+}
+```
+
+```{r}
+predict_node_val(node1)
+predict_node_val(node2)
+```
+
+Navigate the tree w/o needing position assumption (h/t Qian Kou)
+
+```{Rcpp}
+#include<Rcpp.h>
+
+// [[Rcpp::export]]
+int predict_node_val_v2(Rcpp::List node) {
+    
+    // Check if name is present
+    if(node.containsElementNamed("right")) {
+        
+        // Check if element isn't a list.
+        switch(TYPEOF(node["right"])) {
+        case REALSXP:
+        case INTSXP: // Here we allow both REALSXP and INTSXP
+            return node["right"];
+        default:    // Keep going down the tree
+            return predict_node_val_v2(node["right"]);
+        }
+    }
+    
+    // Quiet compiler by providing a final output case
+    return -1;
+}
+```
+
+
+```{r}
+node1 = list(right = list(left = 2, right = 0))  
+node2 = list(right = 2)  
+
+predict_node_val_v2(node1)
+predict_node_val_v2(node2)
+```
+
+
+**Misc Note:** 
+
+The `list` object in _R_ is represented by a `SEXP` that has type of either 
+`VECSXP` or `NILSXP` by using 
+[`Rf_isNewList(x)`](https://github.com/wch/r-source/blob/cd021a40df16cc55c7a78e234ee505636bdf972c/src/include/Rinlinedfuns.h#L811-L814)
+in [`Rinternals.h`](https://github.com/wch/r-source/blob/trunk/src/include/Rinternals.h)
