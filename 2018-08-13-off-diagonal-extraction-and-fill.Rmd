@@ -1,0 +1,79 @@
+
+Post: https://stackoverflow.com/questions/51825401/rcpp-retrieve-and-replace-off-diagonal-values-of-a-square-matrix
+
+
+Data:
+
+```{r}
+A = matrix(1:25, 5, 5) 
+
+A
+
+A[row(A) == (col(A) - 3)]       # extract the 3rd off-diagnal values
+A[row(A) == (col(A) - 2)] = -5 # replace the 2nd off-diagnal values with -5
+
+A
+```
+
+Experiments:
+
+Diagonal extraction
+
+```{Rcpp}
+#include<RcppArmadillo.h>
+// [[Rcpp::depends(RcppArmadillo)]]
+
+// [[Rcpp::export]]
+arma::vec offdiag_extract(arma::mat& A, int k) {
+  return A.diag(k);
+}
+```
+
+Diagonal fill (custom)
+
+```{Rcpp}
+// [[Rcpp::export]]
+arma::mat offdiag_replace(arma::mat& A, int k, double replace_val = -5) {
+  
+  // Determine whether to go over upper or lower diagonal  
+  unsigned int row_offset = (k < 0) ? -k : 0;
+  unsigned int col_offset = (k > 0) ?  k : 0;
+  
+  // Compute total number of elements
+  unsigned int N = std::min(A.n_rows - row_offset, A.n_cols - col_offset);
+  
+  // Loop over diagonal
+  for(unsigned int i = 0; i < N; ++i) {
+    
+    unsigned int row = i + row_offset;
+    unsigned int col = i + col_offset;
+    
+    // Disregard bounds checks with .at()
+    A.at(row,col) = replace_val;
+  }
+  
+  return A;
+}
+```
+
+```{r}
+offdiag_replace(A, 2, 4)
+```
+
+Hat tip to \@mtall for mentioning chaining of [`.diag()`](http://arma.sourceforge.net/docs.html#diag) member function with [`.fill(value)`](http://arma.sourceforge.net/docs.html#fill)
+
+```{Rcpp}
+#include<RcppArmadillo.h>
+// [[Rcpp::depends(RcppArmadillo)]]
+
+// [[Rcpp::export]]
+arma::vec offdiag_extract_arma(arma::mat& A, int k, double replace_value = -5) {
+  A.diag(k).fill(-5);
+  return A;
+}
+```
+
+c.f. [`.replace()`](http://arma.sourceforge.net/docs.html#replace)
+
+
+
