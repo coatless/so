@@ -1,0 +1,55 @@
+Post: https://stackoverflow.com/questions/52006424/modifying-a-subsection-of-an-rcpplist-in-a-separate-function-by-reference/
+
+## OP Code
+
+```{Rcpp}
+#include <Rcpp.h>
+
+void modifyList(Rcpp::List l) {
+  l["x"] = "x";
+}
+
+// [[Rcpp::export]]
+Rcpp::List rcppTest() {
+  Rcpp::List res;
+  res["a"] = Rcpp::List::create();
+  modifyList(res["a"]);
+  return res;
+}
+```
+
+```{r}
+rcppTest()
+```
+
+
+## Solution
+
+Do not use references. Instead, use explicit returns.
+
+```{Rcpp}
+#include<Rcpp.h>
+
+// Specified return type of List
+Rcpp::List modifyList(Rcpp::List l) {
+  l["x"] = "x";
+  return l;
+}
+
+// [[Rcpp::export]]
+Rcpp::List rcppTest() {
+  Rcpp::List res;
+  res["a"] = Rcpp::List::create();
+
+  // Store result back into "a"
+  res["a"] = modifyList(res["a"]);
+
+  return res;
+}
+```
+
+
+```{r}
+rcppTest()
+```
+
