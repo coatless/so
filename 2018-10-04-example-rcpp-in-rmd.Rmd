@@ -1,0 +1,32 @@
+---
+title: "Example Rcpp Document"
+author: "JJB"
+date: "10/4/2018"
+output: html_document
+---
+
+OP: https://stackoverflow.com/questions/52645875/rcpp-in-markdown
+
+---------------------------
+
+You just omitted the inclusion of the `Rcpp.h` and the `[[Rcpp::export]]` attribute to create and link the function into _R_. 
+
+```{Rcpp firstChunk}
+#include <Rcpp.h>
+
+// [[Rcpp::export]]
+Rcpp::IntegerVector doubleMe(Rcpp::IntegerVector x) {
+  return x + x;
+}
+```
+
+In another chunk, you can call the Rcpp function with the engine
+_R_.
+
+```{r callFirstChunkInR}
+doubleMe(c(2, 2))
+```
+
+More reading on using different engines in code can be found at: 
+
+[R Markdown: The Definitive Guide - Chapter 2, Section 2.7 Other language engines](https://bookdown.org/yihui/rmarkdown/language-engines.html)
