@@ -1,0 +1,91 @@
+---
+title: "Retrieving an Element from a StringVector as a std::string"
+author: "JJB"
+date: "10/10/2018"
+output: html_document
+---
+
+OP: https://stackoverflow.com/questions/52917411/unable-to-compile-simple-rcpp-function-using-c11
+
+Code:
+
+```{Rcpp, eval = FALSE}
+include <Rcpp.h>
+#include <string.h> // std::string, std::stod
+using namespace Rcpp;
+
+// [[Rcpp::plugins(cpp11)]]
+
+// [[Rcpp::export]]
+NumericVector convertToDouble(Rcpp::StringVector x) {
+    // Numeirc vector to store results
+    NumericVector res;
+    // Double for converted values
+    double converted_double;
+    for(Rcpp::StringVector::iterator it = x.begin(); it != x.end(); ++it) {
+        // Get [] for vector element
+        int index = std::distance(x.begin(), it);
+        // Add results to vector
+        converted_double = std::stod(x[index]);
+        res.push_back(converted_double);
+    }
+    return res;
+}
+```
+
+```{r eval = FALSE}
+Rcpp::sourceCpp(
+    file = "sample_stod.cpp",
+    embeddedR = FALSE,
+    verbose = TRUE,
+    rebuild = TRUE,
+    cleanupCacheDir = TRUE,
+    showOutput = TRUE)
+
+convertToDouble(c("2.3", "34.25a", "abc32def.43", "12", "1.5"))
+```
+
+---------------------------
+
+Main issue is the need to help out the conversion
+
+```{Rcpp}
+#include <Rcpp.h>
+
+// [[Rcpp::plugins(cpp11)]]
+
+// [[Rcpp::export]]
+Rcpp::NumericVector convertToDouble(Rcpp::StringVector x) {
+    // Standard double vector to store results
+    std::vector<double> res;
+
+    // Double for converted values
+    double converted_double;
+    for(Rcpp::StringVector::iterator it = x.begin(); it != x.end(); ++it) {
+        // Get [] for vector element
+        int index = std::distance(x.begin(), it);
+
+        // Help the conversion to string
+        std::string temp = Rcpp::as<std::string>(x[index]);
+
+        // Convert
+        converted_double = std::stod(temp);
+
+        // Add element to std vector by appending.
+        // Do not use this approach with Rcpp types due to deep cloning.
+        res.push_back(converted_double);
+    }
+
+    // Convert and return the Rcpp type as desired.
+    return Rcpp::wrap(res);
+}
+```
+
+Test
+
+```{r, eval = FALSE}
+convertToDouble(c("2.3", "34.25a", "abc32def.43", "12", "1.5"))
+# Error in convertToDouble(c("2.3", "34.25a", "abc32def.43", "12", "1.5")) : stod: no conversion
+```
+
+`abc32def.43` can't be converted without prior cleaning...
