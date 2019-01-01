@@ -1,0 +1,60 @@
+---
+title: "Reimplement `all()` to avoid Rcpp sugar's is_true() and is_false() requirement."
+author: "JJB"
+date: "12/31/2018"
+output: html_document
+---
+
+OP: <https://stackoverflow.com/questions/53983393/is-there-an-easier-way-to-write-conditional-statements-with-numericvector-in-rcp/53983537#53983537>
+
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+NumericVector compare(NumericVector a, NumericVector b) {
+  bool val = is_true(all(b <= a));
+  if (val) {
+    return a;
+  }
+  return b;
+}
+```
+
+Unfortunately, `is_true()` and `is_false()` are required for use with `all()` Rcpp sugar function because:
+
+> The actual return type of all(X) is an instance of the SingleLogicalResult template class, but the functions is_true and is_false may be used to convert the return value to bool.
+
+c.f. http://thecoatlessprofessor.com/programming/unofficial-rcpp-api-documentation/#all
+
+---
+
+Rewrite into a `for` loop:
+
+```{Rcpp}
+#include <Rcpp.h>
+
+// [[Rcpp::export]]
+Rcpp::NumericVector compare_loop(Rcpp::NumericVector a, Rcpp::NumericVector b) {
+  
+  if(a.size() != b.size()) Rcpp::stop("Lengths of a and b must be the same.");
+  
+  for (int i = 0; i < a.size(); ++i) {
+    if ( !(b[i] <= a[i]) ) {
+      return b;
+    }
+  }
+  
+  return a;
+}
+```
+
+```{r}
+a = c(-1, 2, 3, 5)
+b = c(-3, -2, 4, 3)
+
+all.equal(compare_loop(a,b), compare(a,b))
+```
+
+
