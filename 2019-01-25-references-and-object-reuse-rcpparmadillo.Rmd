@@ -1,0 +1,105 @@
+---
+title: "References and Object Reuse in RcppArmadillo"
+author: "JJB"
+date: "01/25/2019"
+output: html_document
+---
+
+OP: https://stackoverflow.com/questions/54372769/vector-assigned-the-standard-deviation-of-matrix-columns-is-changing-its-value
+
+Code:
+
+```{Rcpp}
+// [[Rcpp::depends(RcppArmadillo)]]
+
+#include <RcppArmadillo.h>
+using namespace Rcpp;
+using namespace arma;
+
+// [[Rcpp::export]]
+List centering_mem_reuse(arma::mat & X) {
+  
+  int p = X.n_cols;
+  
+  rowvec meanx(p);
+  rowvec sigmax(p);
+  
+  meanx=mean(X,0);
+  sigmax=stddev(X,0);
+  
+  for(int j=0;j<p;j++)
+  {
+    X.col(j)=X.col(j)-meanx(j);
+    X.col(j)=X.col(j)/sigmax(j);
+  }
+  
+  return List::create(Named("sigma") = sigmax, Named("X") = X);
+}
+```
+
+```{r}
+set.seed(42)    
+X <- replicate(3, rnorm(5, 5, 3))
+set.seed(42)    
+X_clone <- replicate(3, rnorm(5, 5, 3))
+
+X
+all.equal(X, X_clone)
+res <- centering_mem_reuse(X)
+
+all.equal(X, res$X)
+
+all.equal(X, X_clone)
+X
+
+centering_mem_reuse()
+```
+
+
+
+```{Rcpp}
+// [[Rcpp::depends(RcppArmadillo)]]
+
+#include <RcppArmadillo.h>
+using namespace Rcpp;
+using namespace arma;
+
+// [[Rcpp::export]]
+List centering_new_memory(arma::mat X) {
+  
+  int p = X.n_cols;
+  
+  rowvec meanx(p);
+  rowvec sigmax(p);
+  
+  meanx=mean(X,0);
+  sigmax=stddev(X,0);
+  
+  for(int j=0;j<p;j++)
+  {
+    X.col(j)=X.col(j)-meanx(j);
+    X.col(j)=X.col(j)/sigmax(j);
+  }
+  
+  return List::create(Named("sigma") = sigmax, Named("X") = X);
+}
+```
+
+
+
+```{r}
+set.seed(42)    
+X <- replicate(3, rnorm(5, 5, 3))
+set.seed(42)    
+X_clone <- replicate(3, rnorm(5, 5, 3))
+
+X
+all.equal(X, X_clone)
+res <- centering_new_memory(X)
+
+all.equal(X, res$X)
+
+all.equal(X, X_clone)
+X
+```
+
