@@ -1,0 +1,58 @@
+---
+title: "SingleLogicalResult conversion failure"
+author: "JJB"
+date: "2/14/2019"
+output: html_document
+---
+
+OP: https://stackoverflow.com/questions/54693296/rcpp-forbiden-conversion-beginner
+
+Problem: `Rcpp::sugar::SingleLogicalResult` resulting from `any()` use requires
+conversion to `bool` via `.is_true()` or `.is_false()`.
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+List Cpp_intersect_rectangles(NumericVector x_min, NumericVector x_max,
+                              NumericVector y_min, NumericVector y_max) {
+    
+    // Create a list :
+    NumericVector min = pmax(x_min, y_min);
+    NumericVector max = pmin(x_max, y_max);
+    List L = List::create(R_NilValue);
+    
+    if (! any(min > max).is_true()) {
+                      // ^^^^^^^^^
+        L = List::create(Named("min") = min , _["max"] = max);
+    }
+    return(L);
+}
+```
+
+```{r}
+intersect_rectangles <- function(x_min, x_max, y_min, y_max) {
+
+  rez <- list()
+  rez$min <- pmax(x_min, y_min)
+  rez$max <- pmin(x_max, y_max)
+
+  if (any(rez$min > rez$max)) {
+    return(list(NULL))
+  }
+  return(rez)
+}
+```
+
+
+```{r}
+u = rep(0,4)
+v = rep(1,4)
+w = rep(0.3,4)
+x = c(0.8,0.8,3,3)
+all.equal(intersect_rectangles (u,v,w,x),Cpp_intersect_rectangles(u,v,w,x))
+all.equal(intersect_rectangles (u,v,w,w),Cpp_intersect_rectangles(u,v,w,w))
+
+```
+
