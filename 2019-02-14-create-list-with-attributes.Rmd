@@ -1,0 +1,39 @@
+---
+title: "Create a list with attributes"
+author: "JJB"
+date: "2/14/2019"
+output: html_document
+---
+
+OP: https://stackoverflow.com/questions/54693381/how-to-create-a-list-with-attributes-with-rcpp/54693808#54693808
+
+Problem: Translate list structure to Rcpp
+
+```{r}
+list(Name1 = structure("", type = "root", sticon = "fa-icon", stclass = "color"))
+```
+
+Solution
+
+```{Rcpp}
+#include<Rcpp.h>
+
+// [[Rcpp::export]]
+Rcpp::List create_list_with_attr(Rcpp::CharacterVector x) {
+    Rcpp::List val = Rcpp::List::create(
+        Rcpp::Named("Name1") = x
+    );
+    
+    val.attr("type") = "root";
+    val.attr("sticon") = "fa-icon";
+    val.attr("stclass") = "color";
+    
+    return val;
+}
+```
+
+```{r}
+create_list_with_attr(" ")
+```
+
+
