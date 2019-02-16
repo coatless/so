@@ -1,0 +1,139 @@
+---
+title: "Steps to Debug Parallelized Code used by Rcpp"
+author: "JJB"
+date: "2/15/2019"
+output: html_document
+---
+
+### OP
+ 
+https://stackoverflow.com/questions/54719364/rcpp-index-out-of-bound/54719691#54719691
+
+### Problem
+
+OP code causes error...
+
+```{Rcpp}
+#include "RcppArmadillo.h"
+#include <omp.h>
+// [[Rcpp::depends(RcppArmadillo)]]
+using namespace Rcpp;
+
+// [[Rcpp::plugins(openmp)]]
+// [[Rcpp::export]]
+arma::mat my_matrix_op(const arma::mat & A, 
+                       const arma::mat B) {
+
+  const int nObservations = A.n_cols;
+  const int nDraws = B.n_rows;
+  const int nRows = nObservations*nRows;
+  arma::mat out(nRows,3);
+  int i,n,iter,row;
+  omp_set_num_threads(2);
+  #pragma omp parallel for private(i, n, iter, row)
+  for(i = 0; i < nDraws; i++){
+    for(n = 0; n < nObservations; n++) {
+      row = i * nObservations + n ;
+      out(row,0) = i+1 ;
+      out(row,1) = n+1 ;
+      out(row,2) = row+1 ;
+    }
+  }
+
+  return out;
+}
+```
+
+
+### Solution
+
+Simplify code to serial form. Detect self-referencing variable.
+
+```{Rcpp}
+#include "RcppArmadillo.h"
+// [[Rcpp::depends(RcppArmadillo)]]
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+arma::mat my_matrix_simplified(const arma::mat & A, 
+                               const arma::mat B) {
+  
+  const int nObservations = A.n_cols;
+  const int nDraws = B.n_rows;
+  const int nRows = nObservations * nRows;
+  
+  // Show initialization information
+  Rcpp::Rcout << "nObservations: " << nObservations << std::endl 
+              << "nDraws: " << nDraws << std::endl 
+              << "nRows: " << nRows << std::endl;
+  
+  arma::mat out(nRows, 3);
+  
+  // Show trace of matrix construction
+  Rcpp::Rcout << "out - rows: " << out.n_rows << std::endl 
+              << "out - columns: " << out.n_cols << std::endl;
+  
+  int i, n, iter, row;
+  for(i = 0; i < nDraws; ++i){
+    for(n = 0; n < nObservations; ++n) {
+      row = i * nObservations + n;
+      // Show trace statement of index being accessed
+      Rcpp::Rcout << "Output row access id: " << row << std::endl;
+      
+      out(row, 0) = i + 1;
+      out(row, 1) = n + 1;
+      out(row, 2) = row + 1;
+    }
+  }
+  
+  return out;
+}
+```
+
+
+```{r}
+set.seed(9782)
+A <- matrix(rnorm(10), ncol = 5)
+B <- matrix(rnorm(10), nrow = 10)
+
+
+test <- my_matrix_simplified(A = A, B = B)
+```
+
+
+
+```{Rcpp}
+#include "RcppArmadillo.h"
+#include <omp.h>
+// [[Rcpp::depends(RcppArmadillo)]]
+using namespace Rcpp;
+
+// [[Rcpp::plugins(openmp)]]
+// [[Rcpp::export]]
+arma::mat my_matrix_fixed(const arma::mat & A, 
+                       const arma::mat B) {
+
+  const int nObservations = A.n_cols;
+  const int nDraws = B.n_rows;
+  const int nRows = nObservations*nDraws;
+  arma::mat out(nRows,3);
+  int i,n,iter,row;
+  omp_set_num_threads(2);
+  #pragma omp parallel for private(i, n, iter, row)
+  for(i = 0; i < nDraws; i++){
+    for(n = 0; n < nObservations; n++) {
+      row = i * nObservations + n ;
+      out(row,0) = i+1 ;
+      out(row,1) = n+1 ;
+      out(row,2) = row+1 ;
+    }
+  }
+
+  return out;
+}
+```
+
+```{r}
+test <- my_matrix_fixed(A = A, B = B)
+```
+
