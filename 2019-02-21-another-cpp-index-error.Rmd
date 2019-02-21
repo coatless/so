@@ -1,0 +1,100 @@
+---
+title: "Another C++ Index Error"
+author: "JJB"
+date: "2/21/2019"
+output: html_document
+---
+
+OP: https://stackoverflow.com/questions/54816624/rcpp-function-crashing-r-when-using-a-long-input/54816733#54816733
+
+Problem: RStudio Crashes when using _C++_ to compute values with data. 
+
+Solution:
+
+This is an out of bounds error.
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double  InterpolacionRAWCpp(NumericVector plazos,NumericVector tasas,double plazoRequerido){
+  
+  double interpolacionRAW,a,p1,p2;
+  int numero_plazo;
+  double ayuda_plazo = plazoRequerido;
+  
+  // Note vector size is (n + 1)
+  NumericVector tn(tasas.size()+1);
+  NumericVector pn(tasas.size()+1);
+  
+  // Fill in the first element
+  tn[0] = tasas[0];
+  pn[0] = 0;
+  
+  // Note we modify this to be -1 to ensure
+  // we respect _C++_ indices starting at 0 and going to n-1
+  tn[Rcpp::Range(1,tn.size()-1)] = tasas;
+  pn[Rcpp::Range(1,pn.size()-1)] = plazos;
+  
+  
+  interpolacionRAW = 0;
+  numero_plazo = tasas.size();
+  if(ayuda_plazo==0){
+    interpolacionRAW=tn[0];
+  } else {
+    for(int i =0; i<numero_plazo;++i){
+      if((plazoRequerido > pn[i]) & (plazoRequerido<=pn[i+1])){
+        a = pn[i+1]-pn[i];
+        p1 = (pn[i+1]*tn[i+1]-pn[i]*tn[i])/a;
+        p2 = (pn[i+1]*pn[i]*(tn[i]-tn[i+1]))/(a*plazoRequerido);
+        interpolacionRAW=p2+p1;  
+        break;
+      } else if(plazoRequerido>pn[(numero_plazo-1)]){
+        // Cuando el plazo es mayor al maximo plazo del vector de plazos
+        // entonces se extrapola
+        a=pn[(numero_plazo)]-pn[numero_plazo-1];
+        p1=(pn[(numero_plazo)]*tn[(numero_plazo)]-pn[numero_plazo-1]*tn[numero_plazo-1])/a;
+        interpolacionRAW=(p1*(plazoRequerido-pn[(numero_plazo)])+pn[(numero_plazo)]*tn[(numero_plazo)])/plazoRequerido;
+        break;
+      } else if(plazoRequerido<pn[0]){
+        // Cuando el plazoRequerido es menor que el plazo minimo del vector de plazos
+        // se extrapola, para atraz
+        a=pn[1]-pn[0];
+        p1=(pn[1]*tn[1]-pn[0]*tn[0])/a;
+        interpolacionRAW=(p1*(plazoRequerido-pn[1])+pn[1]*tn[1])/plazoRequerido;
+        break;
+      }
+      
+    }
+    
+  }
+  
+  return interpolacionRAW;
+}
+```
+
+```{r}
+plazo2 = c(0.25,0.50,1.00,3.00,5.00,7.00,10.00,15.00)
+dato2 = c(4.147594,4.197599 ,4.403012,5.281392,6.169297,7.124895,8.699570,11.574581)
+x = NULL
+for(i in 1:10000){
+  x = rbind(x,InterpolacionRAWCpp(plazo2,dato2,10))
+}
+x
+```
+
+```{r}
+plazo1 = c(0.08333,0.16667,0.25000,0.50000,1.01389,2.02778,3.04167,4.05556,5.06944,
+           6.08333,7.09722,8.11111,9.12500,10.13889,11.15278,12.16667,13.18056,14.19444,15.20833)
+dato1 = c(4.11798,4.13244,4.14501,4.19365,4.39560,4.80608,5.27216,5.71510,6.16038,
+         6.62284,7.11100,7.67899,8.17816,8.68633,9.20055,9.71490,10.32713,10.94182,11.55650)
+
+x = NULL
+for(i in 1:10000){
+  x = rbind(x,InterpolacionRAWCpp(plazo1,dato1,10))
+}
+x
+```
+
+
