@@ -1,0 +1,48 @@
+---
+title: "Submatrix operations"
+author: "JJB"
+date: "3/12/2019"
+output: html_document
+---
+
+OP: https://stackoverflow.com/questions/55115435/insert-submatrix-with-rcpp
+
+Goal:
+
+```{r}
+X <- matrix(0, 5, 10)
+X[1:4, 4] <- rexp(4)
+X
+```
+
+Solution:
+
+Avoid pure _Rcpp_ opt for either Armadillo (shown) or Eigen.
+
+```{Rcpp}
+#include <RcppArmadillo.h>
+// [[Rcpp::depends(RcppArmadillo)]]
+
+// [[Rcpp::export]]
+arma::mat matrix_fill_single_col() {
+
+  // Setup X matrix
+  arma::mat X = arma::zeros<arma::mat>(5, 10);
+
+  // Generate random values from exponential and save into a vector.
+  arma::vec y = Rcpp::as<arma::vec>(Rcpp::rexp(4, 1));
+
+  // Fill the fourth column in X (Recall: C++ indexes start at 0 not 1)
+  X.submat(0, 3, 3, 3) = y;
+  // Or...
+  // X.col(3) = y;
+
+  return X; 
+}
+```
+
+```{r}
+matrix_fill_single_col()
+```
+
+
