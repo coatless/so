@@ -1,0 +1,77 @@
+---
+title: "Addressing Issues with an InternalFunction and External Package Environment"
+author: "JJB"
+date: "3/20/2019"
+output: html_document
+---
+
+OP: https://stackoverflow.com/questions/55265496/calling-numderivhessian-with-multiple-parameter-objective-function-in-rcpp
+
+Problem: Environment not found / reduction issue.
+
+Couple of quick notes:
+
+- Try the implementation in _R_ and then move it to _C++_.
+    - Provides a reference point and makes sure that everything works as intended.
+- Search paths and names matter
+    - Explicitly load `numDeriv` package before compiling.
+    - Respect capitalization `X` vs. `x`.
+- Ensure output types are accurate
+    - From  [`?numDeriv::hessian`](https://cran.r-project.org/web/packages/numDeriv/numDeriv.pdf#page=8), the output type is an **N** x **N** `Rcpp::NumericMatrix` instead of `Rcpp::List`.
+    
+```{r, error = TRUE}
+k = 2
+k_dimensional = function(x, N) {
+ x ^ N 
+}
+
+numDeriv::hessian(k_dimensional, x = rep(1, k), N = 3)
+```
+
+Improved _C++_ implementation following notes:
+
+
+```{Rcpp}
+#include <Rcpp.h>
+
+double k_dimensional_cpp(Rcpp::NumericVector x, double N){
+// ^^ Change return type from NumericVector to double
+
+  // Speed up the process by writing the _C++_ loop
+  // instead of relying on Rcpp sugar.
+  double total = 0;
+  for(int i = 0 ; i < x.size(); ++i) {
+      total += std::pow(x[i], N);
+  }
+  
+  // Return the accumulated total
+  return total;
+}
+
+// [[Rcpp::export]]
+Rcpp::NumericMatrix call_hess_cpp(double K) {
+    
+  // Ensure that numDeriv package is loaded prior to calling this function
+  Rcpp::Environment numDeriv("package:numDeriv");
+  Rcpp::Function hessian = numDeriv["hessian"];
+  
+  double param = 3;
+  Rcpp::NumericVector x = Rcpp::rep(1.0, K);
+  
+  // Switched from Rcpp::List to Rcpp::NumericMatrix
+  Rcpp::NumericMatrix hessian_results = 
+  hessian(
+    Rcpp::_["func"] = Rcpp::InternalFunction(k_dimensional_cpp),
+    Rcpp::_["x"] = x,    // use lower case x to match function signature.
+    Rcpp::_["N"] = param
+  );
+
+  // Return the calculated hessian
+  return hessian_results;
+}
+```
+
+```{r}
+call_hess_cpp(2)
+```
+
