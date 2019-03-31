@@ -1,0 +1,42 @@
+---
+title: "Vector Recycling"
+author: "JJB"
+date: "3/29/2019"
+output: html_document
+---
+
+OP: https://stackoverflow.com/questions/55403570/vector-recycling-with-rcpp
+
+Problem: _Rcpp_ doesn't recycle by default.
+
+Solution:
+
+Implement the three cases for recycling in _C++_
+
+```{Rcpp}
+#include <Rcpp.h>
+
+// [[Rcpp::export]]
+Rcpp::NumericVector recycle_vector(Rcpp::NumericVector x, 
+                             Rcpp::NumericVector y) {
+
+    // Obtain vector sizes
+    int n_x = x.size();
+    int n_y = y.size(); 
+
+    // Check both vectors have elements
+    if(n_x <= 0 || n_y <= 0) {
+        Rcpp::stop("Both `x` and `y` vectors must have at least 1 element.");
+    }
+
+    // Compare the three cases that lead to recycling... 
+    if(n_x == n_y) {
+        return x + y;
+    } else if (n_x > n_y) {
+        return Rcpp::rep_len(y, n_x) + x;
+    }
+
+    return Rcpp::rep_len(x, n_y) + y; 
+}
+```
+
