@@ -1,0 +1,82 @@
+---
+title: "Max of a Vector without an Element Rcpp"
+author: "JJB"
+date: "3/8/2019"
+output: html_document
+---
+
+OP: https://stackoverflow.com/questions/55068632/rcpp-max-of-vector-except-one-element/55070300#55070300
+
+Problem: Find max of vector except one element with Rcpp
+
+OP Code:
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double max_data_copy(NumericVector vec, int ele) {
+    NumericVector vec_no_ele = clone(vec);
+    vec_no_ele.erase(ele);
+    return max(vec_no_ele);
+}
+```
+
+
+Solution:
+
+> Save the value you want to omit in a temp variable. Set that element to zero or some small value or the same as another value in the vector. Compute the max. Reset the element from the temp variable. 
+> --- @Spaceman
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double max_no_copy(NumericVector vec, int ele) {
+  double temp = vec[ele];
+  
+  // Use a value already in vector
+  vec[ele] = vec[0];
+  
+  // Find max value
+  double result_max = max(vec);
+  
+  // Remove NA value
+  vec[ele] = temp;
+    
+  return result_max;
+}
+```
+
+```{r}
+vec <- 1:10
+ele <- 2 # C++ indices start at 0 not 1. So, subtract.
+
+max_no_copy(vec, ele)
+```
+
+
+Better variant:
+
+```{Rcpp}
+// calculate the max of a vector after omitting one element
+
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double max_except(NumericVector vec, int ele) {
+    if (vec.length() == 1) stop("vec too short");
+    if (ele < 0 | ele > vec.length()-1) stop("ele out of range");
+    double temp = vec[ele];
+    int idx = (ele > 0) ? ele-1 : ele+1;
+    vec[ele] = vec[idx];
+    double res = max(vec);
+    vec[ele] = temp;
+    return res;
+}
+```
+
+
