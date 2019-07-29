@@ -1,0 +1,76 @@
+---
+title: "Hidden function call bug"
+author: "JJB"
+date: "7/24/2019"
+output: html_document
+---
+
+OP: https://stackoverflow.com/questions/57186625/compilation-error-using-rcpparmadillo-package-in-r-with-rowvec
+
+Problem: no match for call to '(Rcpp::traits::input_parameter<const arma::Row<double> 
+
+OP Code:
+
+```{Rcpp, eval = FALSE}
+#include <RcppArmadillo.h>
+// [[Rcpp::depends(RcppArmadillo)]]
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+List beta(const arma::rowvec beta,
+          const int n, 
+          const int L1,
+          const int p,
+          const arma::mat YWeight1,
+          const arma::mat z){
+
+    double S0=0;
+
+    for(int i = 0;i < n; ++i){
+        arma::rowvec zr = z.rows(i,i);
+        S0 +=  exp(arma::as_scalar(beta*zr.t()));
+    }
+
+    List res;
+    res["1"] = S0;
+    return(res);
+}
+```
+
+
+Solution: 
+
+- Remove the `using namespace Rcpp;`
+- Rename the function away from `beta()` to `beta_estimator()`.
+- Specify the length of `Rcpp::List`
+- Access by numeric index instead of string.
+
+Corrected code: 
+
+```{Rcpp}
+#include <RcppArmadillo.h>
+// [[Rcpp::depends(RcppArmadillo)]]
+
+// [[Rcpp::export]]
+Rcpp::List beta_estimator( // renamed function
+        const arma::rowvec beta,
+        const int n, 
+        const int L1,
+        const int p,
+        const arma::mat YWeight1,
+        const arma::mat z){
+    
+    double S0 = 0;
+    
+    for(int i = 0;i < n; ++i){
+        arma::rowvec zr = z.rows(i,i);
+        S0 += exp(arma::as_scalar(beta*zr.t()));
+    }
+    
+    // Specify list length
+    Rcpp::List res(1);
+    res[0] = S0;
+    return(res);
+}
+```
+
