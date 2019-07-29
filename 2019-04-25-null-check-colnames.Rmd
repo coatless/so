@@ -1,0 +1,111 @@
+---
+title: "NULL check in column names"
+output: html_document
+---
+
+
+OP: https://stackoverflow.com/questions/55850510/how-to-get-column-names-even-if-it-is-null-in-rcpp
+
+Problem: Is it okay to do a `NULL` check when retrieving `colnames`()?
+
+OP Code:
+
+```{Rcpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// Get column names or empty
+// [[Rcpp::export]]
+CharacterVector get_colnames_op(const NumericMatrix &x) {
+   CharacterVector cn;
+
+   SEXP cnm = colnames(x);
+   if (!Rf_isNull(cnm)) cn = cnm;
+
+   return(cn);
+}
+```
+
+
+Solution:
+
+Alternative check for attributes idea...
+
+```{Rcpp}
+#include <Rcpp.h>
+
+// Get column names or empty
+// [[Rcpp::export]]
+Rcpp::CharacterVector get_colnames(const Rcpp::NumericMatrix &x) {
+  
+  // Construct a character vector
+  Rcpp::CharacterVector cn;
+  
+  // Create a numerical index for each column
+  Rcpp::IntegerVector a = Rcpp::seq_len(x.ncol());
+  // Coerce it to a character
+  Rcpp::CharacterVector b = Rcpp::as<Rcpp::CharacterVector>(a);
+  
+  // Assign to character vector
+  cn  = b;
+  
+  if(x.hasAttribute("dimnames")) {
+    Rcpp::List dimnames = x.attr( "dimnames" ) ;
+  
+    if(dimnames.size() != 2) {
+      Rcpp::stop("`dimnames` attribute must have a size of 2 instead of %s.", dimnames.size());
+    }
+
+    // Verify column names exist by checking for NULL
+    if(!Rf_isNull(dimnames[1]) ) {
+      // Retrieve colnames and assign to cn.
+      cn = dimnames[1];
+    } else {
+     // Assign to the matrix
+     colnames(x) = cn;
+    }
+  } 
+  
+  return(cn);
+}
+```
+
+
+
+```{r}
+x_no_names = matrix(1:4, nrow = 2)
+
+x_no_names
+colnames(x_no_names)
+rownames(x_no_names)
+attributes(x_no_names)
+
+x_named = x_no_names
+colnames(x_named) = c("Col 1", "Col 2")
+rownames(x_named) = c("Row 1", "Row 2")
+attributes(x_named)
+x_named
+
+x_rownames = x_no_names
+rownames(x_rownames) = c("Row 1", "Row 2")
+attributes(x_rownames)
+x_rownames
+
+x_colnames = x_no_names
+colnames(x_colnames) = c("Col 1", "Col 2")
+attributes(x_colnames)
+x_colnames
+```
+
+```{r}
+get_colnames(x_no_names)
+
+get_colnames(x_named)
+
+
+get_colnames(x_rownames)
+get_colnames(x_colnames)
+```
+
+
+
