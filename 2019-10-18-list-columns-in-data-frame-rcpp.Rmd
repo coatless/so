@@ -1,0 +1,93 @@
+---
+title: "AsIs and DataFrames with List Columns in Rcpp"
+author: "JJB"
+output: html_document
+---
+
+# OP
+
+Goal: data frame in an Rcpp function which contains a list column
+
+https://stackoverflow.com/questions/58452631/rcpp-data-frame-return-with-a-list-column-where-is-the-asis
+
+# Solution
+
+`AsIs` isn't implemented.
+
+The best way to handle working with `list` columns in a `data.frame` within _C++_ is to use `Rcpp::List` to handle the construction. Recall that a `data.frame` is a `list` with an observation count enforcement. In addition, we can modify the `Rcpp::List` object attributes -- unlike a `std` data structure -- to include the `AsIs` flag.
+
+In short, this looks like:
+
+```cpp
+#include <Rcpp.h>
+
+// [[Rcpp::export]]
+SEXP makeListColumn() {
+// ^ Changed from Rcpp::DataFrame to a general SEXP object. 
+
+  // Store inside of an Rcpp List
+  Rcpp::List the_future_list(3);
+  the_future_list[0] = Rcpp::RawVector::create(0, 1, 2);
+  the_future_list[1] = Rcpp::RawVector::create(3, 4);
+  the_future_list[2] = Rcpp::RawVector::create(5, 6, 7, 8, 9, 10);
+  
+  // Mark with AsIs
+  the_future_list.attr("class") = "AsIs";
+
+  // Store inside of a regular vector
+  std::vector<int> another_regular_column;
+  another_regular_column.push_back(42);
+  another_regular_column.push_back(24);
+  another_regular_column.push_back(4242);
+
+  // Construct a list 
+  Rcpp::List ret = Rcpp::List::create(
+      Rcpp::Named("another_regular_column") = another_regular_column,
+      Rcpp::Named("thelistcol") = the_future_list);
+  
+  // Coerce to a data.frame
+  ret.attr("class") = "data.frame";
+  ret.attr("row.names") = Rcpp::seq(1, another_regular_column.size());
+  
+  // Return the data.frame
+  return ret;
+}
+```
+
+Most importantly, note we forgo the `Rcpp::DataFrame` class and return a `SEXP` object. Moreover, we coerce an `Rcpp::List` to an `Rcpp::DataFrame` by changing its `class` and assigning `row.names` to the object.
+
+
+In practice, the code returns: 
+
+```r
+a = makeListColumn()
+str(a)
+# 'data.frame':	3 obs. of  2 variables:
+# $ another_regular_column: int  42 24 4242
+# $ thelistcol            :List of 3
+#  ..$ : raw  00 01 02
+#  ..$ : raw  03 04
+#  ..$ : raw  05 06 07 08 ...
+#  ..- attr(*, "class")= chr "AsIs"
+```
+
+Compared to the desired result:
+
+```r
+what_i_wanted = data.frame(
+    another_regular_column = c(42, 24, 4242),  
+    thelistcol = I(list(as.raw(c(0,1,2)), as.raw(c(3, 4)), as.raw(c(5, 6, 7, 8, 9, 10))))
+)
+
+str(what_i_wanted)
+# 'data.frame':	3 obs. of  2 variables:
+# $ another_regular_column: num  42 24 4242
+# $ thelistcol            :List of 3
+#  ..$ : raw  00 01 02
+#  ..$ : raw  03 04
+#  ..$ : raw  05 06 07 08 ...
+#  ..- attr(*, "class")= chr "AsIs"
+
+all.equal(a, what_i_wanted)
+# [1] TRUE
+```
