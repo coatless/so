@@ -1,0 +1,77 @@
+---
+title: "Column Subsets in Matrices"
+author: "JJB"
+date: "5/31/2020"
+output: html_document
+---
+
+# OP
+
+Goal: Subset data in an Rcpp matrix by column
+
+https://stackoverflow.com/questions/62118084/rcpp-select-subset-numericmatrix-column-by-a-numericvector
+
+# Solution
+
+Upgrade to RcppArmadillo for better matrix manipulation
+
+```{Rcpp}
+#include <RcppArmadillo.h>
+// [[Rcpp::depends(RcppArmadillo)]]
+
+// [[Rcpp::export]]
+arma::mat matrix_subset_logical(const arma::mat& x,
+                                const arma::vec& y) { 
+    // Assumes that y is 0/1 coded.
+    // Retrieves the integer index when y is equivalent 1. 
+    return x.cols( arma::find(y == 1) );
+}
+```
+
+```{Rcpp}
+#include <RcppArmadillo.h>
+// [[Rcpp::depends(RcppArmadillo)]]
+
+// [[Rcpp::export]]
+arma::mat matrix_subset_idx(const arma::mat& x,
+                            const arma::uvec& y) { 
+    
+    // y must be an integer between 0 and columns - 1
+    return x.cols( y );
+}
+```
+
+
+The equivalent in pure _Rcpp_ code would be: 
+
+```{Rcpp}
+#include <Rcpp.h>
+
+// [[Rcpp::export]]
+Rcpp::NumericMatrix matrix_subset_idx_rcpp(
+        Rcpp::NumericMatrix x, Rcpp::IntegerVector y) { 
+    
+    int n_cols_out = y.size();
+    
+    Rcpp::NumericMatrix out = Rcpp::no_init(x.nrow(), n_cols_out);
+        
+    for(unsigned int z = 0; z < n_cols_out; ++z) {
+        out(Rcpp::_, z) = x(Rcpp::_, y[z]);
+    }
+    
+    return out;
+}
+```
+
+# Test
+
+```{r}
+x = matrix(1:15, ncol = 5)
+x
+cpp_matrix_subset(x, c(0, 1, 0, 0, 1))
+
+matrix_subset_idx(x, c(0, 1, 0, 0, 1))
+
+matrix_subset_idx_rcpp(x, c(0, 1, 0, 0, 1))
+```
+
